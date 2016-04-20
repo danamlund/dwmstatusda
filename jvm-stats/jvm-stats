@@ -1,0 +1,4 @@
+#!/bin/sh
+
+java -cp /usr/local/java/jdk/lib/tools.jar:/full/path/to/jvm-stats.jar JvmGcStats "$@"
+

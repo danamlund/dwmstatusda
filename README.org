@@ -1,0 +1,29 @@
+* My dwmstatus
+
+[[http://dwm.suckless.org/dwmstatus/][dwmstatus]] is a tool that sets the status bar of [[http://dwm.suckless.org/][dwm]].
+
+#+BEGIN_EXAMPLE
+090 41C 829 1090 M Wed 20 Apr 17:09
+#+END_EXAMPLE
+
+ 1. =090=: One number pre running JVM. Each number shows the
+    percentage of that JVMs cpu-time is used on garbage
+    collection. Where =0= means 0% and =9= means >30%. Fetched through
+    the attached java program =jvm-stats=.
+ 2. =41C=: My cpu is 41 degree celsius.
+ 3. =829=: All 3 numbers signify percentage used (=0= means 0%, =5=
+    means 50%, =9= means 100%). 
+    1. =8= means that 80% of my memory is currently in use. 
+    2. =2= means that 20% of my swap is currently in use.
+    3. =9= means that my disk is 100% utilized at the moment. Fetched
+       through =iostat -x 1 2=.
+ 4. =1090=: One number per cpu core. Numbers show percentage of that
+    cpu core currently in use. My third core is 100% utilized at the moment.
+
+* Dependencies
+ - iostat (from [[http://sebastien.godard.pagesperso-orange.fr/][sysstat]])
+ - Requires a working jvm-stats on the path. jvm-stats is included.
+ - [[http://www.lm-sensors.org/][lm-sensors]]
+ - [[https://notmuchmail.org/][notmuch]]
+ - =/proc/meminfo=
+ - =/proc/stat=
