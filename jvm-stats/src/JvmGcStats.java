@@ -67,37 +67,85 @@ public class JvmGcStats {
                 // empty
             }
         }
-        String fmt = "%8s  %6s  %7s  %7s  %4s  %4s  %4s  %s\n";
-        System.out.format(fmt, "PID", "GC/CPU", "GC", "CPU", "MEM", "MEM+", "MAX", "NAME");
+
+        List<List<String>> rows = new ArrayList<>();
+
         List<VirtualMachineDescriptor> vmDescs = new ArrayList<>(VirtualMachine.list());
         vmDescs.sort(Comparator.comparingInt(vmDesc -> Integer.parseInt(vmDesc.id())));
+        String runningJvmId = getRunningJvmId();
         for (VirtualMachineDescriptor desc : vmDescs) {
-            if (desc.id().equals(getRunningJvmId())) {
+            if (desc.id().equals(runningJvmId)) {
                 // do not include the running jvm
                 continue;
             }
             if (pid == null || pid.equals(desc.id())) {
                 MBeanData beanData = getMBeanData(desc);
                 if (beanData != null) {
-                    final double gcFraction;
-                    if (oldBeans.containsKey(beanData.id)) {
-                        gcFraction = beanData.getGcFraction(oldBeans.get(beanData.id));
+
+                    List<String> row = new ArrayList<>();
+
+                    row.add(beanData.id);
+                    if (oneSecond) {
+                        // value changes in last second
+                        if (oldBeans.containsKey(beanData.id)) {
+                            MBeanData old = oldBeans.get(beanData.id);
+                            row.add(format(beanData.getGcFraction(old)));
+                            row.add("" + (beanData.gcTime - old.gcTime));
+                            row.add("" + (beanData.getCpuTimeMs() - old.getCpuTimeMs()));
+                        } else {
+                            row.add(format(0.00));
+                            row.add("0");
+                            row.add("0");
+                        }
                     } else {
-                        gcFraction = beanData.getGcFraction(ZERO_MBEAN_DATA);
+                        row.add(format(beanData.getGcFraction(ZERO_MBEAN_DATA)));
+                        row.add("" + beanData.gcTime);
+                        row.add("" + beanData.getCpuTimeMs());
                     }
-                    
-                    System.out.format(fmt,  
-                                      beanData.id, 
-                                      String.format("%.2f", gcFraction), 
-                                      beanData.gcTime, 
-                                      beanData.cpuTime / 1_000_000, 
-                                      beanData.getUsedMem(),
-                                      beanData.getUsedOsMem(),
-                                      beanData.getMaxMem(),
-                                      beanData.name);
+                    row.add(beanData.getUsedMem());
+                    row.add(beanData.getUsedOsMem());
+                    row.add(beanData.getMaxMem());
+                    row.add(beanData.name);
+
+                    rows.add(row);
                 }
             }
         }
+
+        printTable(rows);
+    }
+    
+    private static void printTable(List<List<String>> rows) {
+        List<String> columnNames = Arrays.asList("PID", "GC/CPU", "GC", 
+                                                 "CPU", "MEM", "MEM+", "MAX", "NAME");
+
+        List<Integer> maxColumnLengths = new ArrayList<>();
+        // - 1: last column is not padded
+        for (int i = 0; i < columnNames.size() - 1; i++) {
+            int maxLength = columnNames.get(i).length();
+            for (List<String> row : rows) {
+                int length = row.get(i).length();
+                if (length > maxLength) {
+                    maxLength = length;
+                }
+            }
+            maxColumnLengths.add(maxLength);
+        }
+
+        StringBuilder fmt = new StringBuilder();
+        for (Integer maxLength : maxColumnLengths) {
+            fmt.append("%" + maxLength + "s   ");
+        }
+        fmt.append("%s%n"); // last column and newline
+        
+        System.out.format(fmt.toString(), "PID", "GC/CPU", "GC", "CPU", "MEM", "MEM+", "MAX", "NAME");
+        for (List<String> row : rows) {
+            System.out.format(fmt.toString(), row.toArray());
+        }
+    }
+
+    private static String format(double d) {
+        return String.format("%.2f", d);
     }
 
     private static String getRunningJvmId() {
@@ -256,6 +304,9 @@ public class JvmGcStats {
         }
         public String getMaxMem() {
             return humanBytes(heapMemory.getMax());
+        }
+        public long getCpuTimeMs() {
+            return cpuTime / 1_000_000;
         }
 
 
