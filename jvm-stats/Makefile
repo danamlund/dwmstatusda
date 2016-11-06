@@ -11,4 +11,6 @@ clean:
 	rm -Rf build jvm-stats.jar
 
 r: compile
-	java -cp ${CP}:build JvmGcStats
+	java -cp ${CP}:build JvmGcStats 
+	echo
+	java -cp ${CP}:build JvmGcStats -c

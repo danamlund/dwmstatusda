@@ -233,27 +233,20 @@ inline void ignore_result(char* ignored) { }
 
 // Takes ~2 seconds to run
 int fill_gcpct(char *str, int n) {
-  FILE *f = popen("jvm-stats -1", "r");
+  FILE *f = popen("jvm-stats -c1", "r");
 
   int count = 0;
 
   char line[1024];
-  ignore_result(fgets(line, sizeof(line), f)); // skip heading line
-  while (NULL != fgets(line, sizeof(line), f)) {
-    int i = 0;
-    while (line[i] == ' ' && line[i] != '\0') i++;
-    while (line[i] != ' ' && line[i] != '\0') i++;
-    while (line[i] == ' ' && line[i] != '\0') i++;
-    if (line[i] == '\0') continue;
-
-    float gcfraction = atof(line + i);
-    gcfraction = gcfraction / 0.3; // 30% gc fraction is about as bad as it gets
-    str[count] = pct(gcfraction);
-    count++;
-    if (count + 1 >= n) {
-      str[count] = '+';
+  if (NULL != f && NULL != fgets(line, sizeof(line), f)) {
+    for (int i = 0; line[i] != '\n'; i++) {
+      if (i >= n) {
+        str[count] = '+';
+        break;
+      } else {
+        str[count] = line[i];
+      }
       count++;
-      break;
     }
   }
   pclose(f);
