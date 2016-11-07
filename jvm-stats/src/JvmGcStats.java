@@ -48,6 +48,7 @@ public class JvmGcStats {
                 System.out.println("  -1:      print gc data over 1 second (rather than lifetime)");
                 System.out.println("  -c:      print single-character summary for each jvm");
                 System.out.println("Columns descriptions:");
+                System.out.println("  C        Single-character description");
                 System.out.println("  GC/CPU   The fraction the jvm have used garbage collecting");
                 System.out.println("  GC       Time used garbage collecting in ms");
                 System.out.println("  CPU      Cpu time used in ms");
@@ -127,57 +128,51 @@ public class JvmGcStats {
         List<Character> chars = new ArrayList<>();
 
         for (MBeanData beanData : getBeans(pid)) {
-            if (oneSecond) {
-                // value changes in last second
-                if (oldBeans.containsKey(beanData.id)) {
-                    MBeanData old = oldBeans.get(beanData.id);
-                    if (beanData.getGcFraction(old) > WARN_GC_PERCENTAGE) {
-                        chars.add('G');
-                        continue;
-                    }
-                }
-            }
-
-            if ((double) (beanData.heapMemory.getUsed() + beanData.nonHeapMemory.getUsed()) 
-                / beanData.heapMemory.getMax() > WARN_MEM_PERCENTAGE) {
-                chars.add('M');
-                continue;
-            }
-
-            if (beanData.openFileDescriptorCount > WARN_FILE_DESCRIPTORS) {
-                chars.add('F');
-                continue;
-            }
-
-            if (beanData.threadCount > WARN_LIVE_THREADS) {
-                chars.add('T');
-                continue;
-            }
-
-            if (beanData.nioBufferPoolDirectMemoryUsed + beanData.nioBufferPoolMappedMemoryUsed 
-                > WARN_BUFFERPOOL) {
-                chars.add('B');
-                continue;
-            }
-
-            if (beanData.loadedClassCount > WARN_LOADED_CLASSES) {
-                chars.add('C');
-                continue;
-            }
-
-            double load = beanData.processCpuLoad;
-            if (oneSecond && oldBeans.containsKey(beanData.id) ) {
-                load = Math.max(load, oldBeans.get(beanData.id).processCpuLoad);
-            }
-
-            int loadDigit = (int) Math.round(load * 10.0);
-            chars.add(String.valueOf(Math.min(9, Math.max(0, loadDigit))).charAt(0));
+            chars.add(getChar(beanData, oldBeans.get(beanData.id)));
         }
 
         for (Character c : chars) {
             System.out.print(c);
         }
         System.out.println();
+    }
+
+    private static char getChar(MBeanData bean, MBeanData oldBean) {
+        if (oldBean != null) {
+            if (bean.getGcFraction(oldBean) > WARN_GC_PERCENTAGE) {
+                return 'G';
+            }
+        }
+
+        if ((double) (bean.heapMemory.getUsed() + bean.nonHeapMemory.getUsed()) 
+            / bean.heapMemory.getMax() > WARN_MEM_PERCENTAGE) {
+            return 'M';
+        }
+        
+        if (bean.openFileDescriptorCount > WARN_FILE_DESCRIPTORS) {
+            return 'F';
+        }
+        
+        if (bean.threadCount > WARN_LIVE_THREADS) {
+            return 'T';
+        }
+        
+        if (bean.nioBufferPoolDirectMemoryUsed + bean.nioBufferPoolMappedMemoryUsed 
+            > WARN_BUFFERPOOL) {
+            return 'B';
+        }
+        
+        if (bean.loadedClassCount > WARN_LOADED_CLASSES) {
+            return 'C';
+        }
+        
+        double load = bean.processCpuLoad;
+        if (oldBean != null) {
+            load = Math.max(load, oldBean.processCpuLoad);
+        }
+        
+        int loadDigit = (int) Math.round(load * 10.0);
+        return String.valueOf(Math.min(9, Math.max(0, loadDigit))).charAt(0);
     }
 
     private static void printAll(String pid, boolean oneSecond) {
@@ -197,6 +192,8 @@ public class JvmGcStats {
 
         for (MBeanData beanData : getBeans(pid)) {
             List<String> row = new ArrayList<>();
+
+            row.add(""+getChar(beanData, oldBeans.get(beanData.id)));
 
             row.add(beanData.id);
             if (oneSecond) {
@@ -236,7 +233,7 @@ public class JvmGcStats {
     
     private static void printTable(List<List<String>> rows) {
         List<String> columnNames = 
-            Arrays.asList("PID", "GC/CPU", "GC", "CPU", "LOAD", "MEM", "MEM+", "MAX", 
+            Arrays.asList("C", "PID", "GC/CPU", "GC", "CPU", "LOAD", "MEM", "MEM+", "MAX", 
                           "FILES", "THREADS", "FSMEM", "CLASSES", "NAME");
 
         List<Integer> maxColumnLengths = new ArrayList<>();
