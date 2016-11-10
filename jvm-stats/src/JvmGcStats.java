@@ -1,12 +1,13 @@
-import com.sun.tools.attach.*;
-import java.lang.management.*;
-import javax.management.*;
-import javax.management.remote.*;
-import javax.management.openmbean.*;
 
+import com.sun.tools.attach.*;
+import java.io.*;
+import java.lang.management.*;
+import java.time.Duration;
 import java.util.*;
 import java.util.function.*;
-import java.io.*;
+import javax.management.*;
+import javax.management.openmbean.*;
+import javax.management.remote.*;
 
 public class JvmGcStats {
     private static final MemoryUsage NONE_MEMORY_USAGE = new MemoryUsage(0L, 0L, 0L, 0L);
@@ -24,6 +25,7 @@ public class JvmGcStats {
         .nioBufferPoolMappedMemoryUsed(0L)
         .loadedClassCount(0)
         .processCpuLoad(0.0)
+        .uptime(0L)
         .finish();
     private static final double WARN_GC_PERCENTAGE = 0.2;
     private static final double WARN_MEM_PERCENTAGE = 1.1;
@@ -60,6 +62,7 @@ public class JvmGcStats {
                 System.out.println("  THREADS  Number of live threads");
                 System.out.println("  FSMEM    Size of direct+mapped buffer pools");
                 System.out.println("  CLASSES  Number of loaded classes");
+                System.out.println("  UPTIME   Time the jvm have been running");
                 System.out.println("  NAME     The arguments used to start the jvm");
                 System.out.println("Single-character descriptions (order of priority):");
                 System.out.println("  G        GC usage > " + WARN_GC_PERCENTAGE);
@@ -222,6 +225,7 @@ public class JvmGcStats {
             row.add("" + beanData.threadCount);
             row.add(beanData.getBufferPollMem());
             row.add("" + beanData.loadedClassCount);
+            row.add(beanData.getHumanUptime());
 
             row.add(beanData.name);
 
@@ -234,7 +238,7 @@ public class JvmGcStats {
     private static void printTable(List<List<String>> rows) {
         List<String> columnNames = 
             Arrays.asList("C", "PID", "GC/CPU", "GC", "CPU", "LOAD", "MEM", "MEM+", "MAX", 
-                          "FILES", "THREADS", "FSMEM", "CLASSES", "NAME");
+                          "FILES", "THREADS", "FSMEM", "CLASSES", "UPTIME", "NAME");
 
         List<Integer> maxColumnLengths = new ArrayList<>();
         // - 1: last column is not padded
@@ -307,7 +311,8 @@ public class JvmGcStats {
                         .nioBufferPoolDirectMemoryUsed(getNioBufferPoolDirectMemoryUsed(mbeanConn))
                         .nioBufferPoolMappedMemoryUsed(getNioBufferPoolMappedMemoryUsed(mbeanConn))
                         .loadedClassCount(getLoadedClassCount(mbeanConn))
-                        .processCpuLoad(getProcessCpuLoad(mbeanConn));
+                        .processCpuLoad(getProcessCpuLoad(mbeanConn))
+                        .uptime(getUptime(mbeanConn));
                 }
         } catch (Exception e) {
             return null;
@@ -439,6 +444,15 @@ public class JvmGcStats {
         }
     }
 
+    private static long getUptime(MBeanServerConnection conn) {
+        try {
+            ObjectName osName = new ObjectName(ManagementFactory.RUNTIME_MXBEAN_NAME);
+            return (Long) conn.getAttribute(osName, "Uptime");
+        } catch (Exception e) {
+            return -1L;
+        }
+    }
+
     // http://stackoverflow.com/questions/3758606/how-to-convert-byte-size-into-human-readable-format-in-java
     public static String humanBytes(long bytes) {
         int unit = 1024;
@@ -464,6 +478,7 @@ public class JvmGcStats {
         public final long nioBufferPoolMappedMemoryUsed;
         public final int loadedClassCount;
         public final double processCpuLoad;
+        public final long uptime;
 
         private MBeanData(Builder builder) {
             this.id = Objects.requireNonNull(builder.id);
@@ -481,6 +496,7 @@ public class JvmGcStats {
                 builder.nioBufferPoolMappedMemoryUsed.longValue();
             this.loadedClassCount = builder.loadedClassCount.intValue();
             this.processCpuLoad = builder.processCpuLoad.doubleValue();
+            this.uptime = builder.uptime.longValue();
         }
 
         public double getGcFraction(MBeanData olderData) {
@@ -508,6 +524,10 @@ public class JvmGcStats {
             return humanBytes(nioBufferPoolDirectMemoryUsed + nioBufferPoolMappedMemoryUsed);
         }
 
+        public String getHumanUptime() {
+            return Duration.ofSeconds(uptime / 1_000).toString();
+        }
+
         @Override
         public String toString() {
             return "MBeanData["+id+"("+name+"), cpu="+cpuTime+", gc="+gcTime+"]";
@@ -527,6 +547,7 @@ public class JvmGcStats {
             private Long nioBufferPoolMappedMemoryUsed;
             private Integer loadedClassCount;
             private Double processCpuLoad;
+            private Long uptime;
 
             public Builder id(String id) {
                 this.id = id;
@@ -579,6 +600,10 @@ public class JvmGcStats {
             }
             public Builder processCpuLoad(double processCpuLoad) {
                 this.processCpuLoad = processCpuLoad;
+                return this;
+            }
+            public Builder uptime(long uptime) {
+                this.uptime = uptime;
                 return this;
             }
             public MBeanData finish() {
