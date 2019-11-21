@@ -31,8 +31,7 @@
  * gcc -Os -Wall -pedantic -std=c99 dwmstatusda.c -lX11 -o dwmstatusda
  */
 
-#define CPUS 512
-#define STATUS_MAX_LENGTH 256
+#define STATUS_MAX_LENGTH 512
 
 #define _BSD_SOURCE
 
@@ -148,8 +147,8 @@ int fill_cpu_usage(char *str, int n) {
   }
   unsigned long cpu_total[CPUS];
   unsigned long cpu_idle[CPUS];
-  int cpus = CPUS;
-  for (int cpu = 0; cpu < cpus; cpu++) {
+  int cpus = -1;
+  for (int cpu = 0; cpu < 512; cpu++) {
     if (NULL == fgets(line, sizeof(line), stat)) {
       fclose(stat);
       fprintf(stderr, "Could not find all %d spu cores in '/proc/stat'\n",
@@ -161,8 +160,11 @@ int fill_cpu_usage(char *str, int n) {
       break;
     }
     unsigned long user, nice, system, idle;
-    sscanf(line, "%s %lu %lu %lu %lu",
-           cpu_str, &user, &nice, &system, &idle);
+    if (5 != sscanf(line, "%s %lu %lu %lu %lu",
+                    cpu_str, &user, &nice, &system, &idle)) {
+        cpus = cpu;
+        break;
+    }
     cpu_total[cpu] = user + nice + system;
     cpu_idle[cpu] = idle;
   }  
@@ -298,7 +300,6 @@ int main(int argc, char **args) {
   }
 
   char temp[5], memusage[5], cpuusage[64], unreadmail[2], date[32], gcpct[128], ioutil[2];
-
   char buf[STATUS_MAX_LENGTH];
 
   fill_cpu_usage(buf, sizeof(buf));
@@ -315,8 +316,9 @@ int main(int argc, char **args) {
   unreadmail[terminater] = '\0';
   terminater = fill_date(date, sizeof(date));
   date[terminater] = '\0';
-  terminater = fill_gcpct(gcpct, sizeof(gcpct));
-  gcpct[terminater] = '\0';
+  /* terminater = fill_gcpct(gcpct, sizeof(gcpct)); */
+  /* gcpct[terminater] = '\0'; */
+  gcpct[0] = '\0';
   terminater = fill_ioutil(ioutil, sizeof(ioutil));
   ioutil[terminater] = '\0';
 
@@ -330,13 +332,20 @@ int main(int argc, char **args) {
       fill_unread_mail(unreadmail, sizeof(unreadmail));
     }
     if (sleeps % 10 == 0) {
-      terminater = fill_gcpct(gcpct, sizeof(gcpct));
-      gcpct[terminater] = '\0';
+      /* terminater = fill_gcpct(gcpct, sizeof(gcpct)); */
+      /* gcpct[terminater] = '\0'; */
     }
     /* sprintf(buf, "%s %s %s%s %s %s %s", gcpct, temp, memusage, ioutil, cpuusage, unreadmail, date); */
     sprintf(buf, "%s %s %s%s %s %s", gcpct, temp, memusage, ioutil, cpuusage, unreadmail);
+    /* printf("_%s_%s_%s_%s_%s_%s_\n", gcpct, temp, memusage, ioutil, cpuusage, unreadmail); */
     setstatus(buf);
-    /* printf("%s\n", buf); */
+    if (argc >= 2) {
+        printf("%s\n", buf);
+        for (int i = 0; buf[i] != '\0'; i++) {
+            printf("%02X ", buf[i]);
+        }
+        printf("\n");
+    }
     sleep(1);
     fill_ioutil(ioutil, sizeof(ioutil)); // sleeps 1
     sleeps += 2;
