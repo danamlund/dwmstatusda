@@ -32,6 +32,7 @@
  */
 
 #define STATUS_MAX_LENGTH 512
+#define CPUS 512
 
 #define _BSD_SOURCE
 
@@ -192,7 +193,7 @@ int fill_cpu_usage(char *str, int n) {
     last_cpu_idle[cpu] = cpu_idle[cpu];
   }
 
-  return CPUS;
+  return cpus;
 }
 
 int fill_unread_mail(char *str, int n) { 
