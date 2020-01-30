@@ -32,7 +32,7 @@
  */
 
 #define STATUS_MAX_LENGTH 512
-#define CPUS 512
+#define CPUS 128
 
 #define _BSD_SOURCE
 
@@ -149,7 +149,7 @@ int fill_cpu_usage(char *str, int n) {
   unsigned long cpu_total[CPUS];
   unsigned long cpu_idle[CPUS];
   int cpus = -1;
-  for (int cpu = 0; cpu < 512; cpu++) {
+  for (int cpu = 0; cpu < CPUS; cpu++) {
     if (NULL == fgets(line, sizeof(line), stat)) {
       fclose(stat);
       fprintf(stderr, "Could not find all %d spu cores in '/proc/stat'\n",
@@ -177,8 +177,11 @@ int fill_cpu_usage(char *str, int n) {
       float delta_idle = cpu_idle[cpu] - last_cpu_idle[cpu];
       float cpu_usage = delta_total / (delta_total + delta_idle);
       int single_digit_cpu_usage = (int) (cpu_usage * 10);
-      if (single_digit_cpu_usage < 0 || single_digit_cpu_usage > 9) {
+      if (single_digit_cpu_usage < 0) {
         single_digit_cpu_usage = 0;
+      }
+      if (single_digit_cpu_usage > 9) {
+        single_digit_cpu_usage = 9;
       }
       str[cpu] = '0' + single_digit_cpu_usage;
     }
