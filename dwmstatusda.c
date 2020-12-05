@@ -266,10 +266,10 @@ int fill_ioutil(char *str, int n) {
   FILE *f = popen("iostat -x 1 2", "r");
   if (NULL == f) return 0;
 
-  char line[256];
-  int skips = 4;
+  char line[1024];
+  int skips = 2;
   while (NULL != fgets(line, sizeof(line), f)) {
-    if (line[0] == '\n')
+    if (strncmp("Device", line, strlen("Device")) == 0)
       skips--;
     if (skips == 0) {
       break;
